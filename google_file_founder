@@ -1,0 +1,56 @@
+#!/bin/bash
+#set -xv
+
+#Google Arama Ayarları
+aranacak_ekstra_sayfa=5; #0 yapıldığında sadece ilk sayfada arama yapar
+#Gerekli programların kurulumu yapılıyor
+
+
+#DOSYA ARAMA İŞLEMLERİNE BAŞLIYORUZ
+#Kullanıcıdan aranacak kelimeleri aldık
+arama=$(zenity --entry --title="File Downloader" --text="Aradığınız dosya adını girin:");
+#Dosya türü seçiliyor
+dosya_turu=$(zenity --width=200 --height=275 --list --text "Aramak istediğiniz dosya türünü seçin:" --radiolist --column "Seç" --column "Dosya Türü" FALSE PDF FALSE DOC FALSE XLS FALSE PPT FALSE TXT);
+if [ -z $dosya_turu ]; then exit 1; fi
+
+lynx --dump "http://www.google.com/search?q=filetype:$dosya_turu+$(echo $arama|sed -e 's/+/%2B/g' -e 's/ /+/g')" | grep $dosya_turu -i -m 9 | tail -n 8 | cut -d' ' -f4 | grep -v "\.\.\." > /tmp/links
+
+
+#Daha fazla sayfadan bilgi alıyoruz
+ara=$((aranacak_ekstra_sayfa*10));
+page=10;
+while [ ! "$page" == "$ara" ]; do
+	lynx --dump "http://www.google.com/search?q=filetype:$dosya_turu+$(echo $arama|sed -e 's/+/%2B/g' -e 's/ /+/g')&ei=xMAgUu-TKsXIswbjz4G4DQ&start=$page&sa=N" | grep $dosya_turu -i -m 9 | tail -n 8 | cut -d' ' -f4 | grep -v "\.\.\." >> /tmp/links
+	page=$((page+10));
+done
+
+
+#Link dosyasından satır satır okuma işlemi
+i=1;
+while read satir; do
+	if [ -z $satir ]; then
+		break;
+	fi
+	link[$i]=$satir;
+	i=$((i+1));
+done < "/tmp/links"
+
+
+#Listeden indirilecek dosyalar seçiliyor
+indirilecekler=$(zenity  --width=650 --height=550 --list --text "İndirmek istediğiniz dosyaları seçin" --checklist  --column "Seç" --column "Dosyalar" --separator=":" FALSE ${link[1]} FALSE ${link[2]} FALSE ${link[3]} FALSE ${link[4]} FALSE ${link[5]} FALSE ${link[6]} FALSE ${link[7]} FALSE ${link[8]} FALSE ${link[9]} FALSE ${link[10]} FALSE ${link[11]} FALSE ${link[12]} FALSE ${link[13]} FALSE ${link[14]} FALSE ${link[15]} FALSE ${link[16]} FALSE ${link[17]} FALSE ${link[18]} FALSE ${link[19]} FALSE ${link[20]});
+if [ -z $indirilecekler ]; then exit 1; fi
+[ -d ./İndirilenler ] || mkdir İndirilenler
+cd İndirilenler &&
+[ -d ./$dosya_turu ] || mkdir $dosya_turu
+cd $dosya_turu &&
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+	download[$i]=$(echo $indirilecekler | cut -d':' -f$i); 
+	wget ${download[$i]} 2> /dev/null;
+done
+
+
+#İşlemin başarıyla tamamlandığı bildiriliyor
+if [ ! -n $indirilecekler ]; then
+zenity --notification --window-icon="info" --text="İndirme işlemi tamamlandı!" 2> /dev/null;
+fi
+exit;
